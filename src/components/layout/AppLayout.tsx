@@ -1,11 +1,85 @@
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Menu, ShieldCheck } from 'lucide-react';
 
 export function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
+  const wasOpenRef = useRef(false);
+
+  // Manage focus transfer and escape key handling
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      wasOpenRef.current = true;
+      // Focus the first focusable element inside the drawer
+      const timer = setTimeout(() => {
+        if (drawerRef.current) {
+          const focusables = drawerRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          );
+          if (focusables.length > 0) {
+            focusables[0].focus();
+          } else {
+            drawerRef.current.focus();
+          }
+        }
+      }, 50);
+
+      const handleGlobalKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setMobileMenuOpen(false);
+        }
+      };
+
+      document.addEventListener('keydown', handleGlobalKeyDown);
+      return () => {
+        clearTimeout(timer);
+        document.removeEventListener('keydown', handleGlobalKeyDown);
+      };
+    } else if (wasOpenRef.current) {
+      wasOpenRef.current = false;
+      menuTriggerRef.current?.focus();
+    }
+  }, [mobileMenuOpen]);
+
+  // Trap focus within drawer when open
+  const handleDrawerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setMobileMenuOpen(false);
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      if (!drawerRef.current) return;
+      const focusables = Array.from(
+        drawerRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+
+      if (focusables.length === 0) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -29,7 +103,12 @@ export function AppLayout() {
             aria-hidden="true"
           />
           {/* Slide-over menu */}
-          <div className="relative flex w-full max-w-xs flex-1 flex-col bg-slate-50 shadow-xl">
+          <div
+            ref={drawerRef}
+            onKeyDown={handleDrawerKeyDown}
+            tabIndex={-1}
+            className="relative flex w-full max-w-xs flex-1 flex-col bg-slate-50 shadow-xl focus:outline-none"
+          >
             <Sidebar
               onNavigate={() => setMobileMenuOpen(false)}
               onClose={() => setMobileMenuOpen(false)}
@@ -47,10 +126,12 @@ export function AppLayout() {
             <span className="text-sm font-bold text-slate-900">CloudPedagogy AI Ethics</span>
           </div>
           <button
+            ref={menuTriggerRef}
             type="button"
             onClick={() => setMobileMenuOpen(true)}
             className="p-2 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
             aria-label="Open mobile navigation menu"
+            aria-expanded={mobileMenuOpen}
           >
             <Menu className="h-5 w-5" />
           </button>
