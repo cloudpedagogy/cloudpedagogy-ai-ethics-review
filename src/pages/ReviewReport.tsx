@@ -3,8 +3,8 @@ import { useStore } from '../store/useStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { format } from 'date-fns';
-import { Printer, Edit3, Copy, AlertTriangle, Shield, CheckCircle2, Info } from 'lucide-react';
-import type { RecommendationLevel } from '../models/types';
+import { Printer, Edit3, Copy, AlertTriangle, Shield, CheckCircle2, Info, Archive } from 'lucide-react';
+import type { RecommendationLevel, Framework } from '../models/types';
 
 export function ReviewReport() {
   const { id } = useParams();
@@ -12,9 +12,8 @@ export function ReviewReport() {
   const { reviews, frameworks, duplicateReview } = useStore();
 
   const review = reviews.find((r) => r.id === id);
-  const framework = frameworks.find((f) => f.id === review?.frameworkId);
 
-  if (!review || !framework) {
+  if (!review) {
     return (
       <div className="space-y-4">
         <p className="text-slate-700">Review not found.</p>
@@ -24,6 +23,34 @@ export function ReviewReport() {
       </div>
     );
   }
+
+  const liveFramework = frameworks.find((f) => f.id === review.frameworkId);
+  const isSnapshot = !!review.frameworkSnapshot;
+
+  // Resilient fallback when both snapshot and live framework are missing (e.g. legacy review whose framework was deleted)
+  const fallbackFramework: Framework = {
+    id: review.frameworkId,
+    name: 'Historical Framework (Deleted)',
+    description: 'The original framework definition is no longer available.',
+    criteria: Object.entries(review.scores).map(([critId]) => {
+      const contrib = review.scoreExplanation?.criterionContributions.find((c) => c.criterionId === critId);
+      return {
+        id: critId,
+        title: critId,
+        description: '',
+        weight: contrib ? contrib.weight : 1,
+        scoringScale: { type: 'numeric', min: 0, max: 4 },
+        guidanceNotes: '',
+        displayOrder: 0,
+      };
+    }),
+    rules: review.triggeredRules || [],
+    safeguards: review.appliedSafeguards || [],
+    thresholds: [],
+  };
+
+  const framework = review.frameworkSnapshot || liveFramework || fallbackFramework;
+  const isHistoricalFrameworkUnavailable = !review.frameworkSnapshot && !liveFramework;
 
   const isDraft = review.status === 'draft';
 
@@ -68,23 +95,33 @@ export function ReviewReport() {
                 Final Assessment
               </span>
             )}
+            {isSnapshot && (
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                title={`Assessment snapshot archived at review completion (${review.frameworkSnapshot?.capturedAt ? format(new Date(review.frameworkSnapshot.capturedAt), 'PPP') : 'Preserved'})`}
+              >
+                <Archive className="h-3 w-3 mr-1 text-slate-500" />
+                Snapshot
+              </span>
+            )}
           </div>
           <p className="text-sm text-slate-500 mt-1">
             Evaluated on {format(new Date(review.reviewDate), 'PPP')} • Framework: {framework.name}
+            {isSnapshot && ' (Preserved Assessment Snapshot)'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => navigate('/reviews')}>Back</Button>
+          <Button variant="secondary" onClick={() => navigate('/reviews')} aria-label="Back to Reviews">Back</Button>
           {isDraft ? (
-            <Button onClick={() => navigate(`/reviews/${review.id}/edit`)}>
+            <Button onClick={() => navigate(`/reviews/${review.id}/edit`)} aria-label="Resume & Edit Draft">
               <Edit3 className="mr-2 h-4 w-4" /> Resume & Edit Draft
             </Button>
           ) : (
             <>
-              <Button variant="secondary" onClick={handleDuplicate} title="Create Reassessment Revision">
+              <Button variant="secondary" onClick={handleDuplicate} title="Create Reassessment Revision" aria-label="Create Reassessment Revision">
                 <Copy className="mr-2 h-4 w-4" /> Create Revision
               </Button>
-              <Button onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> Print PDF</Button>
+              <Button onClick={handlePrint} aria-label="Print or Export to PDF"><Printer className="mr-2 h-4 w-4" /> Print PDF</Button>
             </>
           )}
         </div>
@@ -97,11 +134,23 @@ export function ReviewReport() {
         </h1>
         <div className="grid grid-cols-2 text-xs text-slate-600 mt-2">
           <div>Date: {format(new Date(review.reviewDate), 'PPP')}</div>
-          <div className="text-right">Framework: {framework.name}</div>
+          <div className="text-right">Framework: {framework.name} {isSnapshot ? '(Snapshot Archive)' : ''}</div>
           <div>Status: {isDraft ? 'DRAFT (INCOMPLETE)' : 'COMPLETED ETHICAL REVIEW'}</div>
           <div className="text-right">Reviewer: {review.reviewer}</div>
         </div>
       </div>
+
+      {isHistoricalFrameworkUnavailable && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm flex items-start">
+          <AlertTriangle className="h-5 w-5 mr-3 text-amber-700 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-semibold">Historical Framework Definition Unavailable:</span>
+            <p className="mt-1">
+              The custom framework used during this review has been deleted and was saved prior to snapshot archiving. Review findings, scores, and deliberative notes are preserved directly from the saved assessment record.
+            </p>
+          </div>
+        </div>
+      )}
 
       {isDraft && (
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm flex items-start">
@@ -399,6 +448,39 @@ export function ReviewReport() {
           </ul>
         </CardContent>
       </Card>
+
+      {/* Formal Reviewer Sign-off & Accountability (Visible on Print) */}
+      <div className="hidden print:block mt-8 pt-6 border-t-2 border-slate-300 break-inside-avoid">
+        <div className="text-sm font-semibold text-slate-800 uppercase tracking-wider mb-4">
+          Ethical Review Sign-off & Accountability
+        </div>
+        <div className="grid grid-cols-2 gap-8 text-xs text-slate-700">
+          <div className="space-y-4">
+            <div>
+              <span className="block text-slate-500 font-medium">Lead Reviewer / Evaluator:</span>
+              <span className="font-semibold text-slate-900 text-sm">{review.reviewer || 'Not specified'}</span>
+            </div>
+            <div>
+              <span className="block text-slate-500 font-medium">Evaluation Date:</span>
+              <span>{format(new Date(review.reviewDate), 'PPP')}</span>
+            </div>
+            <div>
+              <span className="block text-slate-500 font-medium">Concluded Ethical Risk Level:</span>
+              <span className="font-bold text-slate-900">{finalHumanLevel || 'Moderate Risk'}</span>
+            </div>
+          </div>
+          <div className="space-y-6">
+            <div>
+              <span className="block text-slate-500 font-medium">Reviewer Signature:</span>
+              <div className="mt-8 border-b border-slate-400 w-full" />
+            </div>
+            <div>
+              <span className="block text-slate-500 font-medium">Governance / Supervisory Approval:</span>
+              <div className="mt-8 border-b border-slate-400 w-full" />
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Formal Governance Disclaimer */}
       <div className="p-4 bg-slate-100 border border-slate-200 rounded-lg text-slate-600 text-xs leading-relaxed print:mt-8">

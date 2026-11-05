@@ -190,6 +190,12 @@ export function validateImportPayload(rawInput: unknown): ValidationOutcome {
           return { isValid: false, error: `Review "${r.id}" humanDecision has an invalid concludedLevel.` };
         }
       }
+      if ('frameworkSnapshot' in r && r.frameworkSnapshot !== undefined && r.frameworkSnapshot !== null) {
+        const fs = r.frameworkSnapshot as Record<string, unknown>;
+        if (!fs || typeof fs !== 'object' || typeof fs.id !== 'string' || typeof fs.name !== 'string' || !Array.isArray(fs.criteria)) {
+          return { isValid: false, error: `Review "${r.id}" has an invalid frameworkSnapshot structure.` };
+        }
+      }
 
       validatedReviews.push(r as unknown as Review);
     }

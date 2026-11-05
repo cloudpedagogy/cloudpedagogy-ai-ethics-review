@@ -36,10 +36,14 @@ export function FrameworkBuilder() {
         <Button variant="secondary" onClick={() => navigate('/frameworks')}>Back to Frameworks</Button>
       </div>
 
-      <div className="flex space-x-4 border-b border-slate-200">
+      <div className="flex space-x-4 border-b border-slate-200" role="tablist" aria-label="Framework Builder Sections">
         {(['general', 'criteria', 'thresholds', 'rules', 'safeguards'] as const).map((tab) => (
           <button
             key={tab}
+            role="tab"
+            id={`tab-${tab}`}
+            aria-controls={`panel-${tab}`}
+            aria-selected={activeTab === tab}
             onClick={() => setActiveTab(tab)}
             className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
               activeTab === tab 
@@ -52,7 +56,7 @@ export function FrameworkBuilder() {
         ))}
       </div>
 
-      <div className="py-4">
+      <div className="py-4" role="tabpanel" id={`panel-${activeTab}`} aria-labelledby={`tab-${activeTab}`} tabIndex={0}>
         {activeTab === 'general' && <GeneralTab frameworkId={framework.id} />}
         {activeTab === 'criteria' && <CriteriaTab frameworkId={framework.id} />}
         {activeTab === 'thresholds' && <ThresholdsTab frameworkId={framework.id} />}

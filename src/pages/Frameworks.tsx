@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Copy, Trash2, Edit, Star, ShieldCheck } from 'lucide-react';
 
 export function Frameworks() {
-  const { frameworks, activeFrameworkId, setActiveFrameworkId, duplicateFramework, deleteFramework } = useStore();
+  const { frameworks, reviews, activeFrameworkId, setActiveFrameworkId, duplicateFramework, deleteFramework } = useStore();
   const navigate = useNavigate();
 
   const handleDuplicate = (id: string, name: string) => {
@@ -14,7 +14,12 @@ export function Frameworks() {
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this framework? This action cannot be undone.')) {
+    const associatedReviews = reviews.filter((r) => r.frameworkId === id);
+    let message = 'Are you sure you want to delete this framework? This action cannot be undone.';
+    if (associatedReviews.length > 0) {
+      message = `This framework is referenced by ${associatedReviews.length} existing review(s). Reviews with completed assessment snapshots will preserve their historical rubrics, but draft reviews or legacy assessments without snapshots may display limited framework details. Are you sure you want to delete it?`;
+    }
+    if (window.confirm(message)) {
       deleteFramework(id);
     }
   };
@@ -32,7 +37,7 @@ export function Frameworks() {
         {frameworks.map((fw) => (
           <Card key={fw.id} className={`relative ${fw.id === activeFrameworkId ? 'ring-2 ring-slate-900' : ''}`}>
             {fw.id === activeFrameworkId && (
-              <div className="absolute top-4 right-4 text-slate-900" title="Active Framework">
+              <div className="absolute top-4 right-4 text-slate-900" title="Active Framework" aria-label="Active Framework">
                 <ShieldCheck className="h-5 w-5" />
               </div>
             )}
@@ -56,20 +61,44 @@ export function Frameworks() {
               </div>
             </CardContent>
             <CardFooter className="flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" onClick={() => navigate(`/frameworks/${fw.id}`)}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => navigate(`/frameworks/${fw.id}`)}
+                aria-label={`Edit ${fw.name} framework`}
+              >
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => handleDuplicate(fw.id, fw.name)} title="Duplicate">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleDuplicate(fw.id, fw.name)}
+                title="Duplicate"
+                aria-label={`Duplicate ${fw.name} framework`}
+              >
                 <Copy className="h-4 w-4" />
               </Button>
               {!fw.isDefault && (
-                <Button size="sm" variant="ghost" onClick={() => handleDelete(fw.id)} className="text-red-600 hover:text-red-700 hover:bg-red-50" title="Delete">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleDelete(fw.id)}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  title="Delete"
+                  aria-label={`Delete ${fw.name} framework`}
+                >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}
               {fw.id !== activeFrameworkId && (
-                <Button size="sm" variant="ghost" onClick={() => setActiveFrameworkId(fw.id)} title="Set as Active">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setActiveFrameworkId(fw.id)}
+                  title="Set as Active"
+                  aria-label={`Set ${fw.name} as active framework`}
+                >
                   <Star className="h-4 w-4" />
                 </Button>
               )}

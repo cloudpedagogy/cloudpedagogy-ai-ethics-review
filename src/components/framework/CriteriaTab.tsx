@@ -234,6 +234,7 @@ export function CriteriaTab({ frameworkId }: { frameworkId: string }) {
                         variant="secondary"
                         onClick={() => handleStartEdit(crit)}
                         title="Edit Criterion"
+                        aria-label={`Edit criterion ${crit.title}`}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -243,6 +244,7 @@ export function CriteriaTab({ frameworkId }: { frameworkId: string }) {
                         onClick={() => handleRemoveCriterion(crit.id)}
                         className="text-red-600 hover:bg-red-50"
                         title="Delete Criterion"
+                        aria-label={`Delete criterion ${crit.title}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

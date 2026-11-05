@@ -61,6 +61,7 @@ export function Reviews() {
               <input 
                 type="text" 
                 placeholder="Search reviews by title or system..." 
+                aria-label="Search reviews by title or system"
                 className="flex-1 bg-transparent border-none focus:ring-0 text-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -166,6 +167,7 @@ export function Reviews() {
                               variant="secondary"
                               onClick={() => navigate(`/reviews/${review.id}/edit`)}
                               title="Resume Draft"
+                              aria-label={`Resume draft assessment for ${review.title}`}
                             >
                               <Edit3 className="mr-1 h-3.5 w-3.5 inline" /> Resume
                             </Button>
@@ -176,6 +178,7 @@ export function Reviews() {
                                 variant="ghost"
                                 onClick={() => navigate(`/reviews/${review.id}`)}
                                 title="View Report"
+                                aria-label={`View report for ${review.title}`}
                               >
                                 <Eye className="h-4 w-4 text-slate-600 hover:text-slate-900" />
                               </Button>
@@ -184,6 +187,7 @@ export function Reviews() {
                                 variant="ghost"
                                 onClick={() => handleDuplicate(review.id)}
                                 title="Revise / Duplicate Assessment"
+                                aria-label={`Revise or duplicate assessment for ${review.title}`}
                               >
                                 <Copy className="h-4 w-4 text-slate-600 hover:text-slate-900" />
                               </Button>
@@ -198,6 +202,7 @@ export function Reviews() {
                               }
                             }}
                             title="Delete Review"
+                            aria-label={`Delete review ${review.title}`}
                           >
                             <Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />
                           </Button>

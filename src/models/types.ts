@@ -63,6 +63,17 @@ export interface Framework {
   thresholds: Threshold[];
 }
 
+export interface FrameworkSnapshot {
+  id: string;
+  name: string;
+  description: string;
+  criteria: Criterion[];
+  thresholds: Threshold[];
+  rules: Rule[];
+  safeguards: Safeguard[];
+  capturedAt: string;
+}
+
 export interface CriterionScoreExplanation {
   criterionId: string;
   score: number;
@@ -145,6 +156,7 @@ export interface Review {
   evidenceItems?: EvidenceItem[];
   humanDecision?: HumanDecision;
   selectedSafeguardIds?: string[];
+  frameworkSnapshot?: FrameworkSnapshot;
   isRevisionOf?: string;
 }
 

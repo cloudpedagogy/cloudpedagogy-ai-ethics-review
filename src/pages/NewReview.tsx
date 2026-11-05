@@ -12,6 +12,7 @@ import type {
   RecommendationLevel,
   EvidenceType,
   VerificationStatus,
+  FrameworkSnapshot,
 } from '../models/types';
 import { v4 as uuidv4 } from 'uuid';
 import { AlertTriangle, Plus, Trash2, CheckCircle2, Bookmark, ArrowRight, ArrowLeft, Shield } from 'lucide-react';
@@ -184,6 +185,19 @@ export function NewReview() {
       selectedSafeguardIds.includes(sg.id)
     );
 
+    const frameworkSnapshot: FrameworkSnapshot | undefined = isCompleted
+      ? {
+          id: framework.id,
+          name: framework.name,
+          description: framework.description,
+          criteria: JSON.parse(JSON.stringify(framework.criteria)),
+          thresholds: JSON.parse(JSON.stringify(framework.thresholds)),
+          rules: JSON.parse(JSON.stringify(framework.rules)),
+          safeguards: JSON.parse(JSON.stringify(framework.safeguards)),
+          capturedAt: new Date().toISOString(),
+        }
+      : existingReview?.frameworkSnapshot;
+
     const reviewPayload: Review = {
       id: existingReview ? existingReview.id : uuidv4(),
       frameworkId: framework.id,
@@ -210,6 +224,7 @@ export function NewReview() {
         decidedAt: isCompleted ? new Date().toISOString() : undefined,
       },
       selectedSafeguardIds,
+      frameworkSnapshot,
     };
 
     if (existingReview) {
@@ -430,6 +445,7 @@ export function NewReview() {
                         onClick={() => handleRemoveStakeholder(sh.id)}
                         className="text-red-500 hover:text-red-700 h-6 px-2"
                         title="Remove"
+                        aria-label="Remove stakeholder"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -625,6 +641,7 @@ export function NewReview() {
                       onClick={() => handleRemoveEvidence(ev.id)}
                       className="text-red-500 hover:text-red-700 h-6 px-2"
                       title="Remove"
+                      aria-label="Remove evidence"
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>

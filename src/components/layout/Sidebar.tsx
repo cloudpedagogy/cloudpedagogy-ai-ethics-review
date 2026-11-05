@@ -1,6 +1,6 @@
 
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, Settings, Library, ShieldCheck, Scale } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, Library, ShieldCheck, Scale, X } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
@@ -20,15 +20,32 @@ const navItems = [
   { name: 'Settings', path: '/settings', icon: Settings },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void;
+  onClose?: () => void;
+}
+
+export function Sidebar({ onNavigate, onClose }: SidebarProps = {}) {
   return (
     <div className="flex h-screen w-64 flex-col border-r border-slate-200 bg-slate-50">
-      <div className="flex h-16 shrink-0 items-center border-b border-slate-200 px-4">
-        <ShieldCheck className="mr-3 h-6 w-6 text-slate-700" />
-        <div className="flex flex-col">
-          <span className="text-sm font-bold text-slate-900 tracking-tight leading-tight">CloudPedagogy</span>
-          <span className="text-xs font-medium text-slate-500 leading-tight">AI Ethics Review</span>
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 px-4">
+        <div className="flex items-center">
+          <ShieldCheck className="mr-3 h-6 w-6 text-slate-700" />
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-slate-900 tracking-tight leading-tight">CloudPedagogy</span>
+            <span className="text-xs font-medium text-slate-500 leading-tight">AI Ethics Review</span>
+          </div>
         </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-200 md:hidden"
+            aria-label="Close navigation sidebar"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto py-4">
         <nav className="space-y-6 px-2">
@@ -43,6 +60,7 @@ export function Sidebar() {
                     <NavLink
                       key={item.path}
                       to={item.path}
+                      onClick={onNavigate}
                       className={({ isActive }) =>
                         `group flex items-center rounded-md px-2 py-2 text-sm font-medium ${
                           isActive
@@ -62,6 +80,7 @@ export function Sidebar() {
               ) : (
                 <NavLink
                   to={section.path}
+                  onClick={onNavigate}
                   className={({ isActive }) =>
                     `group flex items-center rounded-md px-2 py-2 text-sm font-medium ${
                       isActive
