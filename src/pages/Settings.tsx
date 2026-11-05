@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Download, Upload, AlertTriangle } from 'lucide-react';
+import { validateImportPayload } from '../utils/validation';
 
 export function Settings() {
   const state = useStore();
@@ -35,16 +36,19 @@ export function Settings() {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const json = JSON.parse(event.target?.result as string);
-        if (json.frameworks) {
-          if (window.confirm('Are you sure you want to import this data? It will merge or overwrite current configurations.')) {
-            state.importData(json);
-            alert('Import successful!');
-          }
-        } else {
-          alert('Invalid file format. Missing "frameworks" data.');
+        const rawContent = event.target?.result as string;
+        const validation = validateImportPayload(rawContent);
+
+        if (!validation.isValid || !validation.data) {
+          alert(`Invalid configuration file: ${validation.error || 'Unknown error'}`);
+          return;
         }
-      } catch (err) {
+
+        if (window.confirm('Are you sure you want to import this data? It will merge or overwrite current configurations.')) {
+          state.importData(validation.data);
+          alert('Import successful!');
+        }
+      } catch {
         alert('Failed to parse JSON file.');
       }
     };

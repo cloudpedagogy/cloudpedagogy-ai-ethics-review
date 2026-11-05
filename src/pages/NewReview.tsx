@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/Card';
-import type { Review, RecommendationLevel, ScoreExplanation } from '../models/types';
+import type { Review } from '../models/types';
 import { v4 as uuidv4 } from 'uuid';
+import { AlertTriangle } from 'lucide-react';
+import { evaluateAssessment, validateReviewCompletion } from '../utils/assessmentEngine';
 
 export function NewReview() {
   const { frameworks, activeFrameworkId, addReview } = useStore();
@@ -22,73 +24,21 @@ export function NewReview() {
 
   const [scores, setScores] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [submissionAttempted, setSubmissionAttempted] = useState(false);
 
   if (!framework) return <div>No active framework selected.</div>;
 
   const handleNext = () => setStep(step + 1);
   const handleBack = () => setStep(step - 1);
 
+  const completionValidation = validateReviewCompletion(framework, scores);
+
   const handleSubmit = () => {
-    // 1. Calculate Score
-    let totalScore = 0;
-    let maxPossibleScore = 0;
-    const criterionContributions = framework.criteria.map((crit) => {
-      const score = scores[crit.id] || 0;
-      const contribution = score * crit.weight;
-      totalScore += contribution;
-      maxPossibleScore += crit.scoringScale.max * crit.weight;
-      return { criterionId: crit.id, score, weight: crit.weight, contribution };
-    });
+    setSubmissionAttempted(true);
 
-    const scoreExplanation: ScoreExplanation = {
-      totalScore,
-      maxPossibleScore,
-      criterionContributions,
-    };
-
-    const percentage = maxPossibleScore > 0 ? (totalScore / maxPossibleScore) * 100 : 0;
-
-    // 2. Apply Thresholds (Fallback)
-    let recommendation: RecommendationLevel = 'Moderate Risk';
-    for (const threshold of framework.thresholds.sort((a, b) => b.minScore - a.minScore)) {
-      if (percentage >= threshold.minScore && percentage <= threshold.maxScore) {
-        recommendation = threshold.recommendation;
-        break;
-      }
-    }
-
-    // 3. Apply Rules (Overrides)
-    // Simplified rule engine for MVP
-    const triggeredRules = framework.rules.filter((rule) => {
-      // Evaluate condition group (assuming AND for root level for now)
-      if (rule.conditionGroup.logic === 'AND') {
-        return rule.conditionGroup.conditions.every((cond) => {
-          if (cond.field.startsWith('crit-')) {
-            const val = scores[cond.field] || 0;
-            if (cond.operator === 'lessThan') return val < cond.value;
-            if (cond.operator === 'greaterThan') return val > cond.value;
-            if (cond.operator === 'equals') return val === cond.value;
-          }
-          return false;
-        });
-      }
-      return false;
-    });
-
-    if (triggeredRules.length > 0) {
-      // Find the most severe outcome
-      const severityOrder: Record<RecommendationLevel, number> = {
-        'Low Risk': 1,
-        'Moderate Risk': 2,
-        'High Risk': 3,
-        'Critical Risk': 4,
-      };
-      
-      triggeredRules.forEach(rule => {
-        if (severityOrder[rule.outcomeLevel] > severityOrder[recommendation]) {
-          recommendation = rule.outcomeLevel;
-        }
-      });
+    const evaluation = evaluateAssessment(framework, scores);
+    if (!evaluation.isComplete || !evaluation.overallRecommendation || !evaluation.scoreExplanation) {
+      return;
     }
 
     const review: Review = {
@@ -104,9 +54,9 @@ export function NewReview() {
       reviewDate: new Date().toISOString(),
       scores,
       notes,
-      scoreExplanation,
-      overallRecommendation: recommendation,
-      triggeredRules,
+      scoreExplanation: evaluation.scoreExplanation,
+      overallRecommendation: evaluation.overallRecommendation,
+      triggeredRules: evaluation.triggeredRules,
       appliedSafeguards: framework.safeguards, // Apply all for MVP
       status: 'completed',
     };
@@ -114,6 +64,10 @@ export function NewReview() {
     addReview(review);
     navigate(`/reviews/${review.id}`);
   };
+
+  const missingCriteriaNames = framework.criteria
+    .filter((c) => completionValidation.missingCriterionIds.includes(c.id))
+    .map((c) => c.title);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -164,48 +118,83 @@ export function NewReview() {
 
       {step === 2 && (
         <div className="space-y-6">
-          {framework.criteria.map((crit) => (
-            <Card key={crit.id}>
-              <CardHeader>
-                <CardTitle>{crit.title}</CardTitle>
-                <p className="text-sm text-slate-500">{crit.description}</p>
-                {crit.guidanceNotes && (
-                  <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-600">
-                    <strong>Guidance:</strong> {crit.guidanceNotes}
+          {submissionAttempted && !completionValidation.isValid && (
+            <div role="alert" className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+              <div className="font-semibold flex items-center mb-1">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Assessment Incomplete
+              </div>
+              <p>All criteria must be evaluated before completing the review. Missing criteria:</p>
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                {missingCriteriaNames.map((name) => (
+                  <li key={name}>{name}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {framework.criteria.map((crit) => {
+            const isMissing = submissionAttempted && completionValidation.missingCriterionIds.includes(crit.id);
+            const currentScore = scores[crit.id];
+            const hasValidScore = currentScore !== undefined && currentScore !== null;
+
+            return (
+              <Card key={crit.id} className={isMissing ? 'border-red-300 ring-1 ring-red-300' : ''}>
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <CardTitle>{crit.title}</CardTitle>
+                    {isMissing && (
+                      <span className="text-xs text-red-600 font-medium">Score required</span>
+                    )}
                   </div>
-                )}
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="label-text mb-2 block">Score (Weight: {crit.weight})</label>
-                  <select 
-                    className="input-field"
-                    value={scores[crit.id] || ''}
-                    onChange={(e) => setScores({...scores, [crit.id]: parseInt(e.target.value, 10)})}
-                  >
-                    <option value="" disabled>Select a score...</option>
-                    {Array.from({ length: crit.scoringScale.max - crit.scoringScale.min + 1 }).map((_, i) => {
-                      const val = crit.scoringScale.min + i;
-                      const label = crit.scoringScale.labels?.[val];
-                      return (
-                        <option key={val} value={val}>
-                          {val} {label ? `- ${label}` : ''}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-                <div>
-                  <label className="label-text mb-2 block">Notes / Justification</label>
-                  <textarea 
-                    className="input-field min-h-[80px]" 
-                    value={notes[crit.id] || ''}
-                    onChange={(e) => setNotes({...notes, [crit.id]: e.target.value})}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <p className="text-sm text-slate-500">{crit.description}</p>
+                  {crit.guidanceNotes && (
+                    <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-600">
+                      <strong>Guidance:</strong> {crit.guidanceNotes}
+                    </div>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="label-text mb-2 block">Score (Weight: {crit.weight})</label>
+                    <select 
+                      className={`input-field ${isMissing ? 'border-red-500 focus:ring-red-500' : ''}`}
+                      value={hasValidScore ? currentScore : ''}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                        if (val !== undefined && !isNaN(val)) {
+                          setScores({ ...scores, [crit.id]: val });
+                        } else {
+                          const updated = { ...scores };
+                          delete updated[crit.id];
+                          setScores(updated);
+                        }
+                      }}
+                    >
+                      <option value="" disabled>Select a score...</option>
+                      {Array.from({ length: crit.scoringScale.max - crit.scoringScale.min + 1 }).map((_, i) => {
+                        const val = crit.scoringScale.min + i;
+                        const label = crit.scoringScale.labels?.[val];
+                        return (
+                          <option key={val} value={val}>
+                            {val} {label ? `- ${label}` : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label-text mb-2 block">Notes / Justification</label>
+                    <textarea 
+                      className="input-field min-h-[80px]" 
+                      value={notes[crit.id] || ''}
+                      onChange={(e) => setNotes({...notes, [crit.id]: e.target.value})}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
 
           <div className="flex justify-between">
             <Button variant="secondary" onClick={handleBack}>Back</Button>

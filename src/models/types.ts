@@ -22,7 +22,7 @@ export interface RuleCondition {
   id: string;
   field: string; // Could be criterion ID or review field (e.g. 'affectsGrades')
   operator: 'equals' | 'greaterThan' | 'lessThan' | 'contains';
-  value: any;
+  value: string | number | boolean;
 }
 
 export interface RuleConditionGroup {
