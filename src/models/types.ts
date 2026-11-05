@@ -76,6 +76,52 @@ export interface ScoreExplanation {
   criterionContributions: CriterionScoreExplanation[];
 }
 
+export interface StakeholderImpact {
+  id: string;
+  group: string;
+  benefits?: string;
+  concernsOrHarms?: string;
+  affectedInterests?: string;
+}
+
+export interface EthicalReflections {
+  significantConcerns?: string;
+  competingValues?: string;
+  tradeOffs?: string;
+  unresolvedQuestions?: string;
+  reviewerReasoning?: string;
+}
+
+export type EvidenceType =
+  | 'Vendor Documentation'
+  | 'Independent Audit'
+  | 'Internal Test'
+  | 'User Feedback'
+  | 'Self-Attestation'
+  | 'Other';
+
+export type VerificationStatus =
+  | 'Verified'
+  | 'Unverified Claim'
+  | 'Partially Verified';
+
+export interface EvidenceItem {
+  id: string;
+  criterionId?: string;
+  description: string;
+  sourceOrReference: string;
+  evidenceType: EvidenceType;
+  verificationStatus: VerificationStatus;
+  limitationsOrUncertainty?: string;
+}
+
+export interface HumanDecision {
+  concludedLevel: RecommendationLevel;
+  rationale: string;
+  deviationJustification?: string;
+  decidedAt?: string;
+}
+
 export interface Review {
   id: string;
   frameworkId: string;
@@ -94,6 +140,12 @@ export interface Review {
   triggeredRules?: Rule[];
   appliedSafeguards?: Safeguard[];
   status: 'draft' | 'completed';
+  stakeholderImpacts?: StakeholderImpact[];
+  ethicalReflections?: EthicalReflections;
+  evidenceItems?: EvidenceItem[];
+  humanDecision?: HumanDecision;
+  selectedSafeguardIds?: string[];
+  isRevisionOf?: string;
 }
 
 export interface AppState {

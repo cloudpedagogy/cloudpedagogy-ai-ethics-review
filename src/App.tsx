@@ -19,6 +19,7 @@ function App() {
           <Route path="reviews" element={<Reviews />} />
           <Route path="reviews/new" element={<NewReview />} />
           <Route path="reviews/:id" element={<ReviewReport />} />
+          <Route path="reviews/:id/edit" element={<NewReview />} />
           <Route path="frameworks" element={<Frameworks />} />
           <Route path="frameworks/:id" element={<FrameworkBuilder />} />
           <Route path="settings" element={<Settings />} />

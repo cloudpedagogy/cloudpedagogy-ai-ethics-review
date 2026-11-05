@@ -174,6 +174,23 @@ export function validateImportPayload(rawInput: unknown): ValidationOutcome {
         }
       }
 
+      // Validate optional Batch 2 enriched structures if present
+      if ('stakeholderImpacts' in r && r.stakeholderImpacts !== undefined && !Array.isArray(r.stakeholderImpacts)) {
+        return { isValid: false, error: `Review "${r.id}" stakeholderImpacts must be an array.` };
+      }
+      if ('evidenceItems' in r && r.evidenceItems !== undefined && !Array.isArray(r.evidenceItems)) {
+        return { isValid: false, error: `Review "${r.id}" evidenceItems must be an array.` };
+      }
+      if ('selectedSafeguardIds' in r && r.selectedSafeguardIds !== undefined && !Array.isArray(r.selectedSafeguardIds)) {
+        return { isValid: false, error: `Review "${r.id}" selectedSafeguardIds must be an array.` };
+      }
+      if ('humanDecision' in r && r.humanDecision !== undefined) {
+        const hd = r.humanDecision as Record<string, unknown>;
+        if (!hd || typeof hd !== 'object' || !VALID_RECOMMENDATION_LEVELS.has(hd.concludedLevel as RecommendationLevel)) {
+          return { isValid: false, error: `Review "${r.id}" humanDecision has an invalid concludedLevel.` };
+        }
+      }
+
       validatedReviews.push(r as unknown as Review);
     }
 

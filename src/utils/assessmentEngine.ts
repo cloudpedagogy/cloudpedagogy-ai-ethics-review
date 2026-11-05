@@ -21,6 +21,86 @@ export interface CompletionValidation {
   invalidCriterionIds: string[];
 }
 
+export interface ThresholdValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+/**
+ * Validates a threshold configuration for complete coverage, range validity, and absence of conflicting overlaps.
+ */
+export function validateThresholdConfiguration(thresholds: Threshold[]): ThresholdValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (!thresholds || thresholds.length === 0) {
+    errors.push('At least one threshold must be configured.');
+    return { isValid: false, errors, warnings };
+  }
+
+  for (let i = 0; i < thresholds.length; i++) {
+    const t = thresholds[i];
+    if (typeof t.minScore !== 'number' || isNaN(t.minScore)) {
+      errors.push(`Threshold at index ${i} has invalid minimum score.`);
+    }
+    if (typeof t.maxScore !== 'number' || isNaN(t.maxScore)) {
+      errors.push(`Threshold at index ${i} has invalid maximum score.`);
+    }
+    if (t.minScore > t.maxScore) {
+      errors.push(`Threshold "${t.recommendation || i}" has minScore (${t.minScore}) greater than maxScore (${t.maxScore}).`);
+    }
+    if (t.minScore < 0) {
+      errors.push(`Threshold "${t.recommendation || i}" minScore cannot be negative.`);
+    }
+    if (t.maxScore > 100) {
+      errors.push(`Threshold "${t.recommendation || i}" maxScore cannot exceed 100.`);
+    }
+  }
+
+  if (errors.length > 0) {
+    return { isValid: false, errors, warnings };
+  }
+
+  // Sort copy ascending by minScore to inspect bounds
+  const sorted = [...thresholds].sort((a, b) => a.minScore - b.minScore);
+
+  if (sorted[0].minScore > 0) {
+    warnings.push(`Threshold coverage begins at ${sorted[0].minScore}%, leaving 0%–${sorted[0].minScore}% uncovered (will clamp to lowest threshold).`);
+  }
+
+  if (sorted[sorted.length - 1].maxScore < 100) {
+    warnings.push(`Threshold coverage ends at ${sorted[sorted.length - 1].maxScore}%, leaving ${sorted[sorted.length - 1].maxScore}%–100% uncovered (will clamp to highest threshold).`);
+  }
+
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const current = sorted[i];
+    const next = sorted[i + 1];
+
+    if (next.minScore < current.maxScore) {
+      errors.push(`Overlapping thresholds detected between "${current.recommendation}" (${current.minScore}–${current.maxScore}%) and "${next.recommendation}" (${next.minScore}–${next.maxScore}%).`);
+    } else if (next.minScore > current.maxScore + 1) {
+      warnings.push(`Gap detected between "${current.recommendation}" (max ${current.maxScore}%) and "${next.recommendation}" (min ${next.minScore}%). Midpoint continuous convention will bridge this gap.`);
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+  };
+}
+
+/**
+ * Finds all rules within a framework that reference a specific criterion ID.
+ */
+export function findDependentRules(criterionId: string, rules: Rule[]): Rule[] {
+  return rules.filter((rule) => {
+    if (!rule.conditionGroup || !rule.conditionGroup.conditions) return false;
+    return rule.conditionGroup.conditions.some((cond) => cond.field === criterionId);
+  });
+}
+
 export interface AssessmentResult {
   isComplete: boolean;
   missingCriterionIds: string[];

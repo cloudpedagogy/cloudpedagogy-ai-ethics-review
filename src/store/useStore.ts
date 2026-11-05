@@ -101,6 +101,8 @@ export const useStore = create<AppState>()(
             id: crypto.randomUUID(),
             title: `${revToDuplicate.title} (Copy)`,
             reviewDate: new Date().toISOString(),
+            status: 'draft',
+            isRevisionOf: revToDuplicate.id,
           };
           return { reviews: [...state.reviews, duplicated] };
         }),
